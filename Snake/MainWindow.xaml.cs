@@ -32,13 +32,15 @@ namespace Snake
         int score;
         //таймер по которому 
         DispatcherTimer moveTimer;
-        
+        List<Stone> stones;
+
         //конструктор формы, выполняется при запуске программы
         public MainWindow()
         {
             InitializeComponent();
             
             snake = new List<PositionedEntity>();
+            stones = new List<Stone>();
             //создаем поле 300х300 пикселей
             field = new Entity(600, 600, "pack://application:,,,/Resources/snake.png");
 
@@ -62,7 +64,14 @@ namespace Snake
             //обновляем положение яблока
             Canvas.SetTop(apple.image, apple.y);
             Canvas.SetLeft(apple.image, apple.x);
-            
+
+            //обновляем положение препятствий
+            foreach (var b in stones)
+            {
+                Canvas.SetTop(b.image, b.y);
+                Canvas.SetLeft(b.image, b.x);
+            }
+
             //обновляем количество очков
             lblScore.Content = String.Format("{0}000", score);
         }
@@ -109,6 +118,42 @@ namespace Snake
                 var part = new BodyPart(snake.Last());
                 canvas1.Children.Add(part.image);
                 snake.Add(part);
+
+                Random rand = new Random();
+                int trouble = rand.Next(100);  //вероятность выпадания препятствия ~2/3
+                if (trouble < 60)
+                {
+                    var tr = new Stone(snake, apple);
+                    canvas1.Children.Add(tr.image);
+                    stones.Add(tr);
+                }
+            }
+            //проверяем, что голова змеи врезалась в препятствие !!!!!!!!!!!!
+            foreach (var b in stones)
+            {
+                //если координаты головы и какой либо из stone совпадают
+                if (b.x == head.x && b.y == head.y)
+                {
+                    //мы проиграли
+                    moveTimer.Stop();
+                    tbGameOver.Visibility = Visibility.Visible;
+                    button1.Visibility = Visibility.Visible;
+                    return;
+                }
+            }
+
+            if (score % 5 == 0)
+            {
+                canvas1.Children.Clear();
+                stones.Clear();
+                canvas1.Children.Add(field.image);
+                // добавлем яблоко
+                canvas1.Children.Add(apple.image);
+                // добавлем змею
+                foreach (var p in snake)
+                {
+                    canvas1.Children.Add(p.image);
+                }
             }
             //перерисовываем экран
             UpdateField();
@@ -141,6 +186,8 @@ namespace Snake
             score = 0;
             // обнуляем змею
             snake.Clear();
+            // обнуляем stones
+            stones.Clear();
             // очищаем канвас
             canvas1.Children.Clear();
             // скрываем надпись "Game Over"
@@ -149,7 +196,7 @@ namespace Snake
             // добавляем поле на канвас
             canvas1.Children.Add(field.image);
             // создаем новое яблоко и добавлем его
-            apple = new Apple(snake);
+            apple = new Apple(snake, stones);
             canvas1.Children.Add(apple.image);
             // создаем голову
             head = new Head();
@@ -229,10 +276,12 @@ namespace Snake
         public class Apple : PositionedEntity
         {
             List<PositionedEntity> m_snake;
-            public Apple(List<PositionedEntity> s)
+            List<Stone> n_stones;
+            public Apple(List<PositionedEntity> s, List<Stone> b)
                 : base(0, 0, 40, 40, "pack://application:,,,/Resources/fruit.png")
             {
                 m_snake = s;
+                n_stones = b;
                 move();
             }
 
@@ -250,6 +299,17 @@ namespace Snake
                         {
                             overlap = true;
                             break;
+                        }
+                    }
+                    foreach (var b in n_stones)
+                    {
+                        if (x >= b.x - 40 && x <= b.x + 40)
+                        {
+                            if (y >= b.y - 40 && y <= b.y + 40)
+                            {
+                                overlap = true;
+                                break;
+                            }
                         }
                     }
                     if (!overlap)
@@ -317,6 +377,44 @@ namespace Snake
             {
                 x = m_next.x;
                 y = m_next.y;
+            }
+        }
+        public class Stone : PositionedEntity
+        {
+            List<PositionedEntity> m_snake;
+            public Stone(List<PositionedEntity> s, Apple a)
+                : base(0, 0, 40, 40, "pack://application:,,,/Resources/Stone.png")
+            {
+                m_snake = s;
+                troublemaker(a);
+            }
+
+            public void troublemaker(Apple a)
+            {
+                Random rnd = new Random();
+                do
+                {
+                    x = rnd.Next(13) * 40 + 40;
+                    y = rnd.Next(13) * 40 + 40;
+                    bool overlap = false;
+                    if (a.x == x && a.y == y)
+                        overlap = true;
+
+                    foreach (var p in m_snake)
+                    {
+                        if (x >= p.x - 40 && x <= p.x + 40)
+                        {
+                            if (y >= p.y - 40 && y <= p.y + 40)
+                            {
+                                overlap = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!overlap)
+                        break;
+                } while (true);
+
             }
         }
     }
